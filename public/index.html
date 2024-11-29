@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Product Management</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <h1>Product Management</h1>
+
+    <!-- Add Product Form -->
+    <form
+      id="add-product-form"
+      action="/products"
+      method="POST"
+      enctype="multipart/form-data"
+    >
+      <h2>Add New Product</h2>
+      <input type="text" name="name" placeholder="Product Name" required />
+      <textarea
+        name="description"
+        placeholder="Product Description"
+        required
+      ></textarea>
+      <input
+        type="number"
+        name="quantity"
+        placeholder="Quantity"
+        min="0"
+        required
+      />
+      <input type="file" name="image" accept="image/*" />
+      <button type="submit">Add Product</button>
+    </form>
+
+    <!-- Search Bar -->
+    <input
+      type="text"
+      id="search-bar"
+      placeholder="Search Products..."
+      oninput="filterProducts()"
+      aria-label="Search products"
+    />
+
+    <h2>Product List</h2>
+    <ul id="product-list"></ul>
+
+    <!-- Product Details Modal -->
+    <div id="product-modal" class="modal">
+      <div class="modal-content">
+        <span class="close" onclick="closeModal()">&times;</span>
+        <h3 id="modal-product-name"></h3>
+        <p id="modal-product-description"></p>
+        <p id="modal-product-quantity"></p>
+        <div id="modal-product-image"></div>
+        <div class="product-buttons">
+          <button id="delete-btn" onclick="deleteProduct()">Delete</button>
+          <button id="edit-btn" onclick="openEditModal()">Edit</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Edit Product Modal -->
+    <div id="edit-modal" class="modal">
+      <div class="modal-content">
+        <span class="close" onclick="closeEditModal()">&times;</span>
+        <h3>Edit Product</h3>
+        <form id="edit-form" method="POST" enctype="multipart/form-data">
+          <input type="hidden" name="productId" id="productId" />
+          <label for="edit-name">Product Name</label>
+          <input type="text" id="edit-name" name="name" />
+          <label for="edit-description">Description</label>
+          <textarea id="edit-description" name="description"></textarea>
+          <label for="edit-quantity">Quantity</label>
+          <input type="number" id="edit-quantity" name="quantity" />
+          <label for="edit-image">Image (Optional)</label>
+          <input type="file" id="edit-image" name="image" accept="image/*" />
+          <button type="submit">Save Changes</button>
+        </form>
+      </div>
+    </div>
+
+    <script>
+      const productList = document.getElementById("product-list");
+      const searchBar = document.getElementById("search-bar");
+      const productModal = document.getElementById("product-modal");
+      const editModal = document.getElementById("edit-modal");
+      const modalProductName = document.getElementById("modal-product-name");
+      const modalProductDescription = document.getElementById(
+        "modal-product-description"
+      );
+      const modalProductQuantity = document.getElementById(
+        "modal-product-quantity"
+      );
+      const modalProductImage = document.getElementById("modal-product-image");
+      const deleteBtn = document.getElementById("delete-btn");
+      const editBtn = document.getElementById("edit-btn");
+
+      let products = [];
+      let currentProduct = null;
+
+      // Fetch products and display them
+      const loadProducts = async () => {
+        const response = await fetch("/products");
+        products = await response.json();
+        displayProducts(products); // Initially display all products
+      };
+
+      // Display filtered products in the list
+      const displayProducts = (filteredProducts) => {
+        productList.innerHTML = "";
+        filteredProducts.forEach((product) => {
+          const li = document.createElement("li");
+          li.textContent = product.name;
+          li.onclick = () => openProductModal(product);
+          productList.appendChild(li);
+        });
+      };
+
+      // Search function for filtering products
+      const filterProducts = () => {
+        const query = searchBar.value.toLowerCase();
+        const filteredProducts = products.filter((product) =>
+          product.name.toLowerCase().includes(query)
+        );
+        displayProducts(filteredProducts);
+      };
+
+      // Open product details modal
+      const openProductModal = (product) => {
+        currentProduct = product;
+        modalProductName.textContent = product.name;
+        modalProductDescription.textContent = product.description;
+        modalProductQuantity.textContent = `Quantity: ${product.quantity}`;
+        modalProductImage.innerHTML = product.image
+          ? `<img src="${product.image}" alt="${product.name}" />`
+          : "No image available";
+        deleteBtn.onclick = () => deleteProduct();
+        editBtn.onclick = () => openEditModal();
+        productModal.style.display = "block";
+      };
+
+      // Close the product details modal
+      const closeModal = () => {
+        productModal.style.display = "none";
+      };
+
+      // Delete product
+      const deleteProduct = async () => {
+        await fetch(`/products/${currentProduct.id}`, {
+          method: "DELETE",
+        });
+        loadProducts(); // Reload products after deletion
+        closeModal();
+      };
+
+      // Open edit product modal
+      const openEditModal = () => {
+        document.getElementById("edit-name").value = currentProduct.name;
+        document.getElementById("edit-description").value =
+          currentProduct.description;
+        document.getElementById("edit-quantity").value =
+          currentProduct.quantity;
+        document.getElementById("productId").value = currentProduct.id;
+        editModal.style.display = "block";
+      };
+
+      // Close the edit modal
+      const closeEditModal = () => {
+        editModal.style.display = "none";
+      };
+
+      // Submit edit form
+      document.getElementById("edit-form").onsubmit = async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const updatedProduct = {
+          id: formData.get("productId"),
+          name: formData.get("name"),
+          description: formData.get("description"),
+          quantity: formData.get("quantity"),
+        };
+
+        const response = await fetch("/products", {
+          method: "PUT",
+          body: JSON.stringify(updatedProduct),
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (response.ok) {
+          closeEditModal();
+          loadProducts(); // Reload product list after editing
+        } else {
+          alert("Failed to update product. Please try again.");
+        }
+      };
+
+      loadProducts();
+    </script>
+  </body>
+</html>
